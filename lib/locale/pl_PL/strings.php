@@ -4151,6 +4151,7 @@ $_LANG['Determined gps coordinates are not precise.\nDo you still want to use th
 
 
 $_LANG['Removed:'] = 'Usunięte:';
+$_LANG['Submit and add new'] = 'Zapisz i dodaj nowy';
 $_LANG['Remover:'] = 'Usuwający:';
 $_LANG['Remove date:'] = 'Data usunięcia:';
 $_LANG['Not removed'] = 'nieusunięte';
