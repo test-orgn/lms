@@ -194,10 +194,10 @@
 				{/if}
 				{button type="submit" icon="save" accesskey="s" label="Submit"}
 				{button icon="cancel" onclick="location.href='?m=eventlist{if isset($backid)}#{$backid}{/if}';" label="Cancel"}
-			<label>
-				<input type="checkbox" name="event[close]"{if $event.close} checked{/if} value="1">
-				{trans("close event")}
-			</label>
+				<label>
+					<input type="checkbox" name="event[close]"{if $event.close} checked{/if} value="1">
+					{trans("close event")}
+				</label>
 			{/box_buttons}
 		{/box_container}
         <div id="row"{if $layout.module == 'eventedit' || $event.helpdesk == 'none' || $event.helpdesk == 'assign'} style="display:none;"{/if}>
