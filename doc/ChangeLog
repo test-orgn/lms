@@ -138,6 +138,40 @@ version 26-git (????-??-??):
   - improvement: lms-rtparser.php backend script is able to scale down image according
     to 'phpui.uploaded_image_max_size' [chilan]
   - enhancement: added separate receipt/bill sale flag for invoices [chilan]
+  - enhancement: resolve ticket by new action button in queueview list [interduo]
+  - improvement: changed TCPDF/HTML debit note to use correspondence address as
+    shipping address (if 'invoices.post_address' is set to true) [awbnet]
+  - improvement: added issuer's signature field to debit note (TCPDF/HTML)
+    (visible if 'notes.issuer_signature' is set to true, default: 'false') [awbnet]
+  - improvement: made TCPDF debit note version look like TCPDF invoice [awbnet]
+  - improvement: new default values for 'phpui.multiselect_popup_on_bottom' (change from 'false'
+    to 'true') and 'phpui.multiselect_max_visible' (change from '0' to '5') [chilan]
+  - enhancement: added routed network support [chilan]
+  - improvement: 'invoices.show_tax_category' configuration variable ('false' by default) controls
+    tax category column visibility on invoices [chilan]
+  - enhancement: added territ city type property support [chilan]
+  - enhancement: implemented JPK new 'EE' flag support for invoices [chilan]
+  - improvement: added 'with discount' customer state filter [chilan]
+  - enhancement: add support for multilevel cloning of the configuration variables [ravvar]
+  - improvement: added 'with receipt' filter on invoice list [chilan]
+  - improvement: added service type property in tariffless liabilities [chilan]
+  - improvement: 'phpui.default_liability_type' ('-1' by default) controls liability type
+    property for newly created tariffless assignments [chilan]
+  - improvement: 'phpui.default_tariff_type' ('-1' by default) controls type property
+    for newly created tariffs [chilan]
+  - improvement: added split payment and telecommunication service filter on invoice list [chilan]
+  - improvement: 'invoices.allow_negative_values' ('false' by default) allows to enable negative
+    value invoice position use [chilan]
+  - enhancement: added customer flags - for now it is used for JPK TP purpose [chilan]
+  - improvement: 'phpui.default_assignment_discount_type' controls preselected discount type
+    in new customer assignment form ('percentage' by default) [chilan]
+  - enhancement: lms-notify.php support action parameter for 'assignment-invoice' which
+    specifies target document type [chilan]
+  - enhancement: allow send message instatly to customers which were found in customer search
+    form [chilan]
+  - devel/improvement: bumped used serwersms API from v1 to v2 [chilan]
+  - enhancement: 'phpui.timetable_user_row_limit' (default: '4') configuration variable to hide
+    assigned users to event when there is too many user assigned [interduo]
 
 version 25.0 (2020-05-15):
 
@@ -714,6 +748,7 @@ version 24.0 (2019-05-16):
     (added special symbol %aligned_partial_period) [ravvar]
   - improvement: added delete and clear contact buttons [chilan]
   - improvement: added jquery based confirmation dialog [chilan]
+  - enhancement: add multilevel configuration export and import [ravvar]
 
 version 1.11.23 (2018-03-21):
 

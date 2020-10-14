@@ -24,6 +24,36 @@
  *  $Id$
  */
 
+if (isset($_GET['action'])) {
+    switch ($_GET['action']) {
+        case 'assign':
+            if (!empty($_GET['ticketid'])) {
+                if (isset($_GET['check-conflict'])) {
+                    header('Content-Type: application/json');
+                    die(json_encode($LMS->TicketIsAssigned($_GET['ticketid'])));
+                }
+                $LMS->TicketChange($_GET['ticketid'], array('owner' => Auth::GetCurrentUser()));
+                $SESSION->redirect(str_replace('&action=assign', '', $_SERVER['REQUEST_URI'])
+                    . ($SESSION->is_set('backid') ? '#' . $SESSION->get('backid') : ''));
+            }
+            break;
+        case 'assign2':
+            $LMS->TicketChange($_GET['ticketid'], array('verifierid' => Auth::GetCurrentUser()));
+            $SESSION->redirect(str_replace('&action=assign2', '', $_SERVER['REQUEST_URI'])
+                . ($SESSION->is_set('backid') ? '#' . $SESSION->get('backid') : ''));
+            break;
+        case 'unlink':
+            $LMS->TicketChange($_GET['ticketid'], array('parentid' => null));
+            $backto = $SESSION->get('backto');
+            if (empty($backto)) {
+                $SESSION->redirect('?m=rtqueuelist');
+            } else {
+                $SESSION->redirect('?' . $backto);
+            }
+            break;
+    }
+}
+
 $LMS->CleanupTicketLastView();
 
 // queue id's
@@ -147,6 +177,32 @@ if (isset($_GET['pids'])) {
     } elseif ($_GET['pids'] == 'all') {
         $filter['projectids'] = null;
     }
+}
+
+// customerid
+if (empty($_GET['cid'])) {
+    $filter['cid'] = null;
+} else {
+    $filter['cid'] = intval($_GET['cid']);
+}
+
+// subject
+if (empty($_GET['subject'])) {
+    $filter['subject'] = null;
+} else {
+    $filter['subject'] = $_GET['subject'];
+}
+
+// created from and created to dates
+if (empty($_GET['fromdate'])) {
+    $filter['fromdate'] = null;
+} else {
+    $filter['fromdate'] = datetime_to_timestamp($_GET['fromdate']);
+}
+if (empty($_GET['todate'])) {
+    $filter['todate'] = null;
+} else {
+    $filter['todate'] = datetime_to_timestamp($_GET['todate']);
 }
 
 // types
@@ -307,6 +363,12 @@ unset($queue['parentids']);
 unset($queue['rights']);
 unset($queue['verifier']);
 unset($queue['netnode']);
+unset($queue['projectids']);
+unset($queue['cid']);
+unset($queue['subject']);
+unset($queue['fromdate']);
+unset($queue['todate']);
+
 
 $queues = $LMS->GetQueueList(array('stats' => false));
 $categories = $LMS->GetUserCategories(Auth::GetCurrentUser());
@@ -320,36 +382,6 @@ $netnodelist = $LMS->GetNetNodeList(array(), 'name');
 unset($netnodelist['total']);
 unset($netnodelist['order']);
 unset($netnodelist['direction']);
-
-if (isset($_GET['action'])) {
-    switch ($_GET['action']) {
-        case 'assign':
-            if (!empty($_GET['ticketid'])) {
-                if (isset($_GET['check-conflict'])) {
-                    header('Content-Type: application/json');
-                    die(json_encode($LMS->TicketIsAssigned($_GET['ticketid'])));
-                }
-                $LMS->TicketChange($_GET['ticketid'], array('owner' => Auth::GetCurrentUser()));
-                $SESSION->redirect(str_replace('&action=assign', '', $_SERVER['REQUEST_URI'])
-                . ($SESSION->is_set('backid') ? '#' . $SESSION->get('backid') : ''));
-            }
-            break;
-        case 'assign2':
-                $LMS->TicketChange($_GET['ticketid'], array('verifierid' => Auth::GetCurrentUser()));
-                $SESSION->redirect(str_replace('&action=assign2', '', $_SERVER['REQUEST_URI'])
-                . ($SESSION->is_set('backid') ? '#' . $SESSION->get('backid') : ''));
-            break;
-        case 'unlink':
-            $LMS->TicketChange($_GET['ticketid'], array('parentid' => null));
-            $backto = $SESSION->get('backto');
-            if (empty($backto)) {
-                $SESSION->redirect('?m=rtqueuelist');
-            } else {
-                $SESSION->redirect('?' . $backto);
-            }
-            break;
-    }
-}
 
 $aet = ConfigHelper::getConfig('rt.allow_modify_resolved_tickets_newer_than', 86400);
 

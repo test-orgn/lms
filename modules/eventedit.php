@@ -154,16 +154,18 @@ if (isset($_POST['event'])) {
 
     if (ConfigHelper::checkConfig('phpui.event_overlap_warning')
         && !$error && empty($event['overlapwarned']) && ($users = $LMS->EventOverlaps(array(
-            'date' => $data,
+            'date' => $date,
             'begintime' => $begintime,
             'enddate' => $enddate,
             'endtime' => $endtime,
             'users' => $event['userlist'],
+            'ignoredevent' => $event['id'],
         )))) {
-        $users = array_map(function ($userid) use ($userlist) {
-            return $userlist[$userid]['rname'];
+        $users_by_id = Utils::array_column($userlist, 'rname', 'id');
+        $users = array_map(function ($userid) use ($users_by_id) {
+            return $users_by_id[$userid];
         }, $users);
-        $error['begin'] = $error['endd'] =
+        $error['begin'] = $error['end'] =
             trans(
                 'Event is assigned to users which already have assigned an event in the same time: $a!',
                 implode(', ', $users)

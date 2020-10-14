@@ -135,6 +135,20 @@ CREATE TABLE location_boroughs (
 );
 
 /* --------------------------------------------------------
+  Structure of table "location_city_types"
+-------------------------------------------------------- */
+DROP SEQUENCE IF EXISTS location_city_types_id_seq;
+CREATE SEQUENCE location_city_types_id_seq;
+DROP TABLE IF EXISTS location_city_types CASCADE;
+CREATE TABLE location_city_types (
+    id integer DEFAULT nextval('location_city_types_id_seq'::text) NOT NULL,
+    ident varchar(8) NOT NULL,
+    name varchar(64) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT location_city_types_name_ukey UNIQUE (name)
+);
+
+/* --------------------------------------------------------
   Structure of table "location_cities"
 -------------------------------------------------------- */
 DROP SEQUENCE IF EXISTS location_cities_id_seq;
@@ -145,6 +159,8 @@ CREATE TABLE location_cities (
 	ident varchar(8)    NOT NULL, -- TERYT: SYM / SYMPOD
 	name varchar(64)    NOT NULL, -- TERYT: NAZWA
 	cityid integer      DEFAULT NULL,
+	type integer        DEFAULT NULL
+		CONSTRAINT location_cities_type_fkey REFERENCES location_city_types (id) ON DELETE CASCADE ON UPDATE CASCADE,
 	boroughid integer   DEFAULT NULL
 		REFERENCES location_boroughs (id) ON DELETE CASCADE ON UPDATE CASCADE,
 	PRIMARY KEY (id)
@@ -296,6 +312,7 @@ CREATE TABLE customers (
     paytime smallint 	DEFAULT -1 NOT NULL,
     paytype smallint 	DEFAULT NULL,
     documentmemo text   DEFAULT NULL,
+    flags smallint NOT NULL DEFAULT 0,
 	PRIMARY KEY (id)
 );
 CREATE INDEX customers_lastname_idx ON customers (lastname, name);
@@ -857,6 +874,7 @@ CREATE TABLE liabilities (
 	taxid integer       	NOT NULL
 		CONSTRAINT liabilities_taxid_fkey REFERENCES taxes (id) ON DELETE CASCADE ON UPDATE CASCADE,
 	prodid varchar(255) 	DEFAULT '' NOT NULL,
+	type smallint DEFAULT -1 NOT NULL,
 	PRIMARY KEY (id)
 );
 
@@ -1375,6 +1393,21 @@ CREATE INDEX nodes_ownerid_idx ON nodes (ownerid);
 CREATE INDEX nodes_ipaddr_pub_idx ON nodes (ipaddr_pub);
 CREATE INDEX nodes_linkradiosector_idx ON nodes (linkradiosector);
 CREATE INDEX nodes_authtype_idx ON nodes (authtype);
+
+/* --------------------------------------------------------
+  Structure of table "routednetworks"
+-------------------------------------------------------- */
+CREATE SEQUENCE routednetworks_id_seq;
+CREATE TABLE routednetworks (
+    id integer DEFAULT nextval('routednetworks_id_seq'::text) NOT NULL,
+    nodeid integer NOT NULL
+        CONSTRAINT routednetworks_nodeid_fkey REFERENCES nodes (id) ON DELETE CASCADE ON UPDATE CASCADE,
+    netid integer NOT NULL
+        CONSTRAINT routednetworks_netid_fkey REFERENCES networks (id) ON DELETE CASCADE ON UPDATE CASCADE,
+    comment varchar(256) DEFAULT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT routednetworks_netid_key UNIQUE (netid)
+);
 
 /* ---------------------------------------------------
  Structure of table "ewx_stm_nodes" (EtherWerX(R))
@@ -2843,10 +2876,10 @@ CREATE VIEW customerview AS
         SELECT 1 FROM customerassignments a
         JOIN excludedgroups e ON (a.customergroupid = e.customergroupid)
         WHERE e.userid = lms_current_user() AND a.customerid = c.id)
-        AND c.divisionid IN (
+        AND (lms_current_user() = 0 OR c.divisionid IN (
             SELECT ud.divisionid
             FROM userdivisions ud
-            WHERE ud.userid = lms_current_user())
+            WHERE ud.userid = lms_current_user()))
         AND c.type < 2;
 
 CREATE VIEW contractorview AS
@@ -3843,6 +3876,6 @@ INSERT INTO netdevicemodels (name, alternative_name, netdeviceproducerid) VALUES
 ('XR7', 'XR7 MINI PCI PCBA', 2),
 ('XR9', 'MINI PCI 600MW 900MHZ', 2);
 
-INSERT INTO dbinfo (keytype, keyvalue) VALUES ('dbversion', '2020091100');
+INSERT INTO dbinfo (keytype, keyvalue) VALUES ('dbversion', '2020100100');
 
 COMMIT;

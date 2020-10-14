@@ -116,8 +116,9 @@ if (isset($_POST['event'])) {
             'endtime' => $endtime,
             'users' => $event['userlist'],
         )))) {
-        $users = array_map(function ($userid) use ($userlist) {
-                return $userlist[$userid]['rname'];
+        $users_by_id = Utils::array_column($userlist, 'rname', 'id');
+        $users = array_map(function ($userid) use ($users_by_id) {
+                return $users_by_id[$userid];
         }, $users);
         $error['begin'] = $error['end'] =
             trans(
@@ -319,6 +320,7 @@ if (isset($_POST['event'])) {
 
                     $LMS->NotifyUsers(array(
                         'queue' => $ticket['queue'],
+                        'verifierid' => $ticket['verifierid'],
                         'mail_headers' => $headers,
                         'mail_body' => $body,
                         'sms_body' => $sms_body,
