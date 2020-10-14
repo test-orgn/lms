@@ -190,7 +190,7 @@
 
 			{box_buttons}
 				{if $layout.module == 'eventadd'}
-					{button type="submit" icon="save" onclick="location.href = '?m=eventadd'" label="Submit and add new" tip="Display this form again, when this event is saved"}
+					{button type="submit" icon="save" onclick="location.href = '?m=eventadd'" label="Submit and add new" tip="Display this form again"}
 				{/if}
 				{button type="submit" icon="save" accesskey="s" label="Submit"}
 				{button icon="cancel" onclick="location.href='?m=eventlist{if isset($backid)}#{$backid}{/if}';" label="Cancel"}
