@@ -88,6 +88,20 @@ if (isset($_GET['search'])) {
     }
 }
 
+if (isset($_GET['oper'])) {
+    switch ($_GET['oper']) {
+        case 'karma-raise':
+            header('Content-Type: application/json');
+            $result = $LMS->raiseCustomerKarma($_GET['id']);
+            die(json_encode($result));
+            break;
+        case 'karma-lower':
+            header('Content-Type: application/json');
+            $result = $LMS->lowerCustomerKarma($_GET['id']);
+            die(json_encode($result));
+            break;
+    }
+}
 if (!isset($_POST['xjxfun'])) {
     require_once(LIB_DIR . DIRECTORY_SEPARATOR . 'customercontacttypes.php');
 
@@ -249,7 +263,8 @@ if (!isset($_POST['xjxfun'])) {
 
             if ($customerdata['pin'] == '') {
                 $error['pin'] = trans('PIN code is required!');
-            } elseif (!validate_random_string($customerdata['pin'], $pin_min_size, $pin_max_size, $pin_allowed_characters)) {
+            } elseif ((!ConfigHelper::checkConfig('phpui.validate_changed_pin') || $customerdata['pin'] != $LMS->getCustomerPin($_GET['id']))
+                && !validate_random_string($customerdata['pin'], $pin_min_size, $pin_max_size, $pin_allowed_characters)) {
                 $error['pin'] = trans('Incorrect PIN code!');
             }
 

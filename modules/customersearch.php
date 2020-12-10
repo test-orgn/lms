@@ -86,6 +86,27 @@ if (!isset($_POST['sk'])) {
 }
 $SESSION->save('cslsk', $statesqlskey);
 
+if (!isset($_POST['flags'])) {
+    $SESSION->restore('cslf', $flags);
+} else {
+    $flags = $_POST['flags'];
+}
+$SESSION->save('cslf', $flags);
+
+if (!isset($_POST['fk'])) {
+    $SESSION->restore('cslfk', $flagsqlskey);
+} else {
+    $flagsqlskey = $_POST['fk'];
+}
+$SESSION->save('cslfk', $flagsqlskey);
+
+if (!isset($_POST['karma'])) {
+    $SESSION->restore('cslkarma', $karma);
+} else {
+    $karma = $_POST['karma'];
+}
+$SESSION->save('cslkarma', $karma);
+
 if (!isset($_POST['n'])) {
     $SESSION->restore('csln', $network);
 } else if ($_POST['n'] == 'all') {
@@ -133,6 +154,9 @@ if (isset($_GET['search'])) {
         "order",
         "state",
         "statesqlskey",
+        "flags",
+        "flagsqlskey",
+        "karma",
         "network",
         "customergroup",
         "search",
@@ -148,6 +172,8 @@ if (isset($_GET['search'])) {
     $listdata['below'] = $customerlist['below'];
     $listdata['over'] = $customerlist['over'];
     $listdata['state'] = $state;
+    $listdata['flags'] = $flags;
+    $listdata['karma'] = $karma;
     $listdata['network'] = $network;
     $listdata['customergroup'] = empty($customergroup) ? array() : $customergroup;
     $listdata['nodegroup'] = $nodegroup;
@@ -155,6 +181,8 @@ if (isset($_GET['search'])) {
 
     unset($customerlist['total']);
     unset($customerlist['state']);
+    unset($customerlist['flags']);
+    unset($customerlist['karma']);
     unset($customerlist['direction']);
     unset($customerlist['order']);
     unset($customerlist['below']);
@@ -183,7 +211,7 @@ if (isset($_GET['search'])) {
             'SELECT customerid, (' . $DB->GroupConcat('contact') . ') AS phone
 			FROM customercontacts WHERE contact <> \'\' AND type & ? > 0 GROUP BY customerid',
             'customerid',
-            array(CONTACT_MOBILE | CONTACT_LANDLINE | CONTACT_LINE)
+            array(CONTACT_MOBILE | CONTACT_LANDLINE)
         ));
 
         $filename = 'customers-' . date('YmdHis') . '.csv';
@@ -211,5 +239,7 @@ if (isset($_GET['search'])) {
     $SMARTY->assign('divisions', $LMS->GetDivisions());
     $SMARTY->assign('k', $sqlskey);
     $SMARTY->assign('sk', $statesqlskey);
+    $SMARTY->assign('fk', $flagsqlskey);
+    $SMARTY->assign('karma', $karma);
     $SMARTY->display('customer/customersearch.html');
 }

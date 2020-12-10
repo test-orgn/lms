@@ -3,7 +3,7 @@
 /*
  * LMS version 1.11-git
  *
- *  (C) Copyright 2001-2017 LMS Developers
+ *  (C) Copyright 2001-2020 LMS Developers
  *
  *  Please, see the doc/AUTHORS for more information about authors!
  *
@@ -30,6 +30,7 @@
 class LMSEzpdfInvoice extends LMSInvoice
 {
     const HEADER_IMAGE_HEIGHT = 40;
+
     private $use_alert_color;
 
     public function __construct($title, $pagesize = 'A4', $orientation = 'portrait')
@@ -63,7 +64,7 @@ class LMSEzpdfInvoice extends LMSInvoice
         if (count($this->data['bankaccounts']) == 1) {
             $account = $this->data['bankaccounts'][0];
         } else {
-            $account = bankaccount($this->data['customerid'], $this->data['account']);
+            $account = bankaccount($this->data['customerid'], $this->data['account'], $this->data['export']);
         }
 
         $this->backend->text_autosize(15*$scale+$x, 568*$scale+$y, 30*$scale, $shortname, 350*$scale);
@@ -72,7 +73,7 @@ class LMSEzpdfInvoice extends LMSInvoice
 
         //$this->backend->text_autosize(15*$scale+$x,683*$scale+$y,30*$scale, substr($tmp,0,17),350*$scale);
         //$this->backend->text_autosize(15*$scale+$x,626*$scale+$y,30*$scale, substr($tmp,18,200),350*$scale);
-        $this->backend->text_autosize(15*$scale+$x, 683*$scale+$y, 30*$scale, format_bankaccount($account), 350*$scale);
+        $this->backend->text_autosize(15*$scale+$x, 683*$scale+$y, 30*$scale, format_bankaccount($account, $this->data['export']), 350*$scale);
         if (ConfigHelper::checkValue(ConfigHelper::getConfig('invoices.customer_balance_in_form', false))) {
             $value = ($this->data['customerbalance'] / $this->data['currencyvalue']) * -1;
         } else {
@@ -119,12 +120,12 @@ class LMSEzpdfInvoice extends LMSInvoice
         if (count($this->data['bankaccounts']) == 1) {
             $account = $this->data['bankaccounts'][0];
         } else {
-            $account = bankaccount($this->data['customerid'], $this->data['account']);
+            $account = bankaccount($this->data['customerid'], $this->data['account'], $this->data['export']);
         }
 
         $this->backend->text_autosize(15*$scale+$x, 680*$scale+$y, 30*$scale, $name, 950*$scale);
         $this->backend->text_autosize(15*$scale+$x, 617*$scale+$y, 30*$scale, $address." ".$zip." ".$city, 950*$scale);
-        $this->backend->text_autosize(15*$scale+$x, 555*$scale+$y, 30*$scale, format_bankaccount($account), 950*$scale);
+        $this->backend->text_autosize(15*$scale+$x, 555*$scale+$y, 30*$scale, format_bankaccount($account, $this->data['export']), 950*$scale);
         $this->backend->addtext(330*$scale+$x, 495*$scale+$y, 30*$scale, 'X');
         $this->backend->text_autosize(550*$scale+$x, 495*$scale+$y, 30*$scale, "*".number_format($this->data['total'], 2, ',', '')."*", 400*$scale);
         if (ConfigHelper::checkValue(ConfigHelper::getConfig('invoices.customer_balance_in_form', false))) {
@@ -141,22 +142,68 @@ class LMSEzpdfInvoice extends LMSInvoice
         );
         $this->backend->text_autosize(15*$scale+$x, 372*$scale+$y, 30*$scale, $this->data['name'], 950*$scale);
         $this->backend->text_autosize(15*$scale+$x, 312*$scale+$y, 30*$scale, $this->data['address']." ".$this->data['zip']." ".$this->data['city'], 950*$scale);
-        if (ConfigHelper::checkValue(ConfigHelper::getConfig('invoices.customer_balance_in_form', false))) {
-            $this->backend->text_autosize(15*$scale+$x, 250*$scale+$y, 30*$scale, trans('Payment for liabilities'), 950*$scale);
-        } else {
-            $tmp = docnumber(array(
-                'number' => $this->data['number'],
-                'template' => $this->data['template'],
-                'cdate' => $this->data['cdate'],
-                'customerid' => $this->data['customerid'],
-            ));
-            if ($this->data['doctype'] == DOC_INVOICE_PRO) {
-                $this->backend->text_autosize(15*$scale+$x, 250*$scale+$y, 30*$scale, trans('Payment for pro forma invoice No. $a', $tmp), 950*$scale);
+
+        $payment_title = ConfigHelper::getConfig('invoices.payment_title', null, true);
+        if (empty($payment_title)) {
+            if (ConfigHelper::checkValue(ConfigHelper::getConfig('invoices.customer_balance_in_form', false))) {
+                $payment_title = trans('Payment for liabilities');
             } else {
-                $this->backend->text_autosize(15*$scale+$x, 250*$scale+$y, 30*$scale, trans('Payment for invoice No. $a', $tmp), 950*$scale);
+                $tmp = docnumber(array(
+                    'number' => $this->data['number'],
+                    'template' => $this->data['template'],
+                    'cdate' => $this->data['cdate'],
+                    'customerid' => $this->data['customerid'],
+                ));
+                if ($this->data['doctype'] == DOC_INVOICE_PRO) {
+                    $payment_title = trans('Payment for pro forma invoice No. $a', $tmp);
+                } else {
+                    $payment_title = trans('Payment for invoice No. $a', $tmp);
+                }
+            }
+        } else {
+            $customerid = $this->data['customerid'];
+            $payment_title = preg_replace_callback(
+                '/%(\\d*)cid/',
+                function ($m) use ($customerid) {
+                    return sprintf('%0' . $m[1] . 'd', $customerid);
+                },
+                $payment_title
+            );
+        }
+        $this->backend->text_autosize(15 * $scale + $x, 250 * $scale + $y, 30 * $scale, $payment_title, 950 * $scale);
+    }
+
+    protected function invoice_jpk_flags()
+    {
+        global $DOC_FLAGS;
+        $flags = array();
+
+        if (!empty($this->data['splitpayment'])) {
+            $flags[] = $DOC_FLAGS[DOC_FLAG_SPLIT_PAYMENT];
+        }
+
+        foreach ($this->data['flags'] as $flag => $value) {
+            if (!empty($value)) {
+                $flags[] = $DOC_FLAGS[$flag];
             }
         }
+
+        if (!empty($this->data['taxcategories'])) {
+            foreach ($this->data['taxcategories'] as $taxcategory) {
+                $flags[] = sprintf('GTU_%02d', $taxcategory);
+            }
+        }
+
+        if (!empty($flags)) {
+            $this->backend->text_align_center(
+                $this->backend->ez['pageWidth'] / 2,
+                $this->backend->ez['pageHeight'] - 15,
+                10,
+                trans('JPK:') . ' <b>' . implode(', ', $flags) . '</b>'
+            );
+        }
     }
+
 
     protected function invoice_dates($x, $y)
     {
@@ -203,11 +250,14 @@ class LMSEzpdfInvoice extends LMSInvoice
         $y=$this->backend->text_wrap($x, $y, 350, $font_size, $this->data['name'], 'left');
         $y=$y-$this->backend->text_align_left($x, $y, $font_size, $this->data['address']);
         $y=$y-$this->backend->text_align_left($x, $y, $font_size, $this->data['zip']." ".$this->data['city']);
-        if ($this->data['division_countryid'] && $this->data['countryid'] && $this->data['division_countryid'] != $this->data['countryid']) {
+        if ($this->data['export']) {
             $y=$y-$this->backend->text_align_left($x, $y, $font_size, trans($this->data['country']));
         }
         if ($this->data['ten']) {
-            $y=$y-$this->backend->text_align_left($x, $y, $font_size, trans('TEN').' '.$this->data['ten']);
+            $currentSystemLanguage = Localisation::getCurrentSystemLanguage();
+            Localisation::setSystemLanguage($this->data['lang']);
+            $y = $y - $this->backend->text_align_left($x, $y, $font_size, trans('TEN') . ' ' . format_ten($this->data['ten'], $this->data['export']));
+            Localisation::setSystemLanguage($currentSystemLanguage);
         } else if (!ConfigHelper::checkValue(ConfigHelper::getConfig('invoices.hide_ssn', true)) && $this->data['ssn']) {
             $y=$y-$this->backend->text_align_left($x, $y, $font_size, trans('SSN').' '.$this->data['ssn']);
         }
@@ -219,11 +269,11 @@ class LMSEzpdfInvoice extends LMSInvoice
     {
         $font_size = 10;
         $y = $y - $this->backend->text_align_left($x, $y, $font_size, '<b>' . trans('Seller:') . '</b>');
-        $tmp = $this->data['division_header'];
+        $tmp = str_replace('%ten%', format_ten($this->data['division_ten'], $this->data['export']), $this->data['division_header']);
 
         if (!ConfigHelper::checkConfig('invoices.show_only_alternative_accounts')
             || empty($this->data['bankccounts'])) {
-            $accounts = array(bankaccount($this->data['customerid'], $this->data['account']));
+            $accounts = array(bankaccount($this->data['customerid'], $this->data['account'], $this->data['export']));
         } else {
             $accounts = array();
         }
@@ -232,7 +282,7 @@ class LMSEzpdfInvoice extends LMSInvoice
             $accounts = array_merge($accounts, $this->data['bankaccounts']);
         }
         foreach ($accounts as &$account) {
-            $account = format_bankaccount($account);
+            $account = format_bankaccount($account, $this->data['export']);
         }
         $account_text = ($this->use_alert_color ? '<c:color:255,0,0>' : '')
             .  implode("</c:color>\n<c:color:255,0,0>", $accounts)
@@ -262,7 +312,7 @@ class LMSEzpdfInvoice extends LMSInvoice
             'customerid' => $this->data['customerid'],
         ));
 
-        if (isset($this->data['invoice'])) {
+        if (isset($this->data['invoice']) && $this->data['doctype'] == DOC_CNOTE) {
             $y=$y - $this->backend->text_align_left($x, $y, $font_size, '<b>' . trans('Credit Note No. $a', $tmp) . '</b>');
         } elseif ($this->data['doctype'] == DOC_INVOICE_PRO) {
             $y=$y - $this->backend->text_align_left($x, $y, $font_size, '<b>' . trans('Pro Forma Invoice No. $a', $tmp) . '</b>');
@@ -270,7 +320,7 @@ class LMSEzpdfInvoice extends LMSInvoice
             $y=$y - $this->backend->text_align_left($x, $y, $font_size, '<b>' . trans('Invoice No. $a', $tmp) . '</b>');
         }
 
-        if (isset($this->data['invoice'])) {
+        if (isset($this->data['invoice']) && $this->data['doctype'] == DOC_CNOTE) {
             $font_size = 12;
             $y += 8;
             $tmp = docnumber(array(
@@ -295,7 +345,7 @@ class LMSEzpdfInvoice extends LMSInvoice
 
         $y -= 5;
 
-        if (isset($this->data['invoice'])) {
+        if (isset($this->data['invoice']) && $this->data['doctype'] == DOC_CNOTE) {
             $y += 10;
         }
         return $y;
@@ -491,7 +541,7 @@ class LMSEzpdfInvoice extends LMSInvoice
             }
         }
 
-        if (isset($this->data['invoice']['content'])) {
+        if (isset($this->data['invoice']['content']) && $this->data['doctype'] == DOC_CNOTE) {
             foreach ($this->data['invoice']['content'] as $item) {
                 $v = 2;
                 $tt_width[$v++] = $this->backend->getTextWidth($font_size, $item['description']);
@@ -549,7 +599,7 @@ class LMSEzpdfInvoice extends LMSInvoice
         $t_justify[11] = $t_justify[10] = $t_justify[9] = $t_justify[8] = $t_justify[7] = $t_justify[6] = $t_justify[5] = "right";
         $t_justify[2] = 'left';
 
-        if (isset($this->data['invoice'])) {
+        if (isset($this->data['invoice']) && $this->data['doctype'] == DOC_CNOTE) {
             // we have credit note, so first print corrected invoice data
             $xx = $x;
             $y = $y - $this->backend->text_align_left($x, $y - 10, $font_size, '<b>' . trans('Was:') . '</b>');
@@ -717,7 +767,7 @@ class LMSEzpdfInvoice extends LMSInvoice
             }
         }
 
-        if (isset($this->data['invoice'])) {
+        if (isset($this->data['invoice']) && $this->data['doctype'] == DOC_CNOTE) {
             $total = $this->data['total'] - $this->data['invoice']['total'];
             $totalbase = $this->data['totalbase'] - $this->data['invoice']['totalbase'];
             $totaltax = $this->data['totaltax'] - $this->data['invoice']['totaltax'];
@@ -828,7 +878,7 @@ class LMSEzpdfInvoice extends LMSInvoice
             }
         }
 
-        if (isset($this->data['invoice']['content'])) {
+        if (isset($this->data['invoice']['content']) && $this->data['doctype'] == DOC_CNOTE) {
             foreach ($this->data['invoice']['content'] as $item) {
                 $tt_width['name'] = $this->backend->getTextWidth($font_size, $item['description']);
                 if (!$hide_prodid) {
@@ -915,7 +965,7 @@ class LMSEzpdfInvoice extends LMSInvoice
             'cols' => $cols2,
         );
 
-        if (isset($this->data['invoice'])) {
+        if (isset($this->data['invoice']) && $this->data['doctype'] == DOC_CNOTE) {
             // we have credit note, so first print corrected invoice data
 
             $y -= 20;
@@ -1076,7 +1126,7 @@ class LMSEzpdfInvoice extends LMSInvoice
             $data2 = array();
         }
 
-        if (isset($this->data['invoice'])) {
+        if (isset($this->data['invoice']) && $this->data['doctype'] == DOC_CNOTE) {
             $total = $this->data['total'] - $this->data['invoice']['total'];
             $totalbase = $this->data['totalbase'] - $this->data['invoice']['totalbase'];
             $totaltax = $this->data['totaltax'] - $this->data['invoice']['totaltax'];
@@ -1185,12 +1235,12 @@ class LMSEzpdfInvoice extends LMSInvoice
             //$y = $y - $this->backend->text_align_left($x, $y, $font_size, '<b>' . trans('Notes:') . '</b>');
             $tmp = $this->data['division_footer'];
 
-            $accounts = array(bankaccount($this->data['customerid'], $this->data['account']));
+            $accounts = array(bankaccount($this->data['customerid'], $this->data['account'], $this->data['export']));
             if (ConfigHelper::checkConfig('invoices.show_all_accounts')) {
                 $accounts = array_merge($accounts, $this->data['bankaccounts']);
             }
             foreach ($accounts as &$account) {
-                $account = format_bankaccount($account);
+                $account = format_bankaccount($account, $this->data['export']);
             }
             $tmp = str_replace('%bankaccount', implode("\n", $accounts), $tmp);
             $tmp = str_replace('%bankname', $this->data['div_bank'], $tmp);
@@ -1258,8 +1308,18 @@ class LMSEzpdfInvoice extends LMSInvoice
 
     public function invoice_body_standard()
     {
+        if (!empty($this->data['div_ccode'])) {
+            Localisation::setSystemLanguage($this->data['div_ccode']);
+        }
+
         $page = $this->backend->ezStartPageNumbers($this->backend->ez['pageWidth']-50, 20, 8, 'right', trans('Page $a of $b', '{PAGENUM}', '{TOTALPAGENUM}'), 1);
+
+        if (ConfigHelper::checkConfig('invoices.jpk_flags')) {
+            $this->invoice_jpk_flags();
+        }
+
         $top = $this->backend->ez['pageHeight'] - 50;
+
         $this->invoice_cancelled();
         $this->invoice_no_accountant();
         $header_image = $this->invoice_header_image(30, $top - (self::HEADER_IMAGE_HEIGHT / 2));
@@ -1314,12 +1374,26 @@ class LMSEzpdfInvoice extends LMSInvoice
                 2
             );
         }
+
+        if (!empty($this->data['div_ccode'])) {
+            Localisation::resetSystemLanguage();
+        }
     }
 
     public function invoice_body_ft0100()
     {
+        if (!empty($this->data['div_ccode'])) {
+            Localisation::setSystemLanguage($this->data['div_ccode']);
+        }
+
         $page = $this->backend->ezStartPageNumbers($this->backend->ez['pageWidth']/2+10, $this->backend->ez['pageHeight']-30, 8, '', trans('Page $a of $b', '{PAGENUM}', '{TOTALPAGENUM}'), 1);
+
+        if (ConfigHelper::checkConfig('invoices.jpk_flags')) {
+            $this->invoice_jpk_flags();
+        }
+
         $top = $this->backend->ez['pageHeight'] - 50;
+
         $this->invoice_cancelled();
         $this->invoice_no_accountant();
         $header_image = $this->invoice_header_image(30, $top - (self::HEADER_IMAGE_HEIGHT / 2));
@@ -1372,6 +1446,10 @@ class LMSEzpdfInvoice extends LMSInvoice
                 array('modify', 'copy', 'fill', 'extract', 'assemble'),
                 2
             );
+        }
+
+        if (!empty($this->data['div_ccode'])) {
+            Localisation::resetSystemLanguage();
         }
     }
 }
